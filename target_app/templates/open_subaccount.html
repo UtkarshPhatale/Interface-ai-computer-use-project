@@ -1,0 +1,23 @@
+<html><head><title>CoreServ - Open Sub-Account</title></head>
+<body bgcolor="#f0f0f0">
+<table width="600" cellpadding="8" cellspacing="0" border="1" align="center">
+<tr><td bgcolor="#003366"><font color="white"><b>Open Sub-Account for {{ member.name }} ({{ member.id }})</b></font></td></tr>
+<tr><td>
+{% if error %}<p><font color="red"><b>{{ error }}</b></font></p>{% endif %}
+<form method="POST" action="/members/{{ member.id }}/open-subaccount">
+<table cellpadding="4">
+<tr><td width="180">Sub-Account Type</td><td>
+<select name="acct_type">
+<option value="">-- select --</option>
+<option value="regular_share">Regular Share</option>
+<option value="holiday_club">Holiday Club</option>
+</select>
+</td></tr>
+<tr><td>Initial Deposit ($)</td><td><input type="text" name="initial_deposit"></td></tr>
+<tr><td colspan="2" align="right"><input type="submit" value="Submit"></td></tr>
+</table>
+</form>
+<p><a href="/members/{{ member.id }}">&laquo; Back to Member Record</a></p>
+</td></tr>
+</table>
+</body></html>

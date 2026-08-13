@@ -1,0 +1,184 @@
+{
+  "artifact_id": "cap_sample0001",
+  "name": "lookup_savings_balance",
+  "version": "1.0.0",
+  "status": "draft",
+  "created_at": "2026-08-13T19:31:27.973995Z",
+  "source": "llm_discovery",
+  "contract": {
+    "goal_description": "Look up a member by ID and read their current savings balance.",
+    "target_app": "coreserv-legacy-terminal",
+    "entry_url": "http://127.0.0.1:5055/members/search",
+    "input_schema": [
+      {
+        "name": "member_id",
+        "type": "string",
+        "required": true,
+        "description": "The member ID to look up.",
+        "enum_values": null,
+        "sensitive": false
+      }
+    ],
+    "output_schema": [
+      {
+        "name": "savings_balance",
+        "type": "string",
+        "description": "The member's savings balance as displayed."
+      }
+    ],
+    "preconditions": [
+      "authenticated operator session (session cookie present)"
+    ]
+  },
+  "steps": [
+    {
+      "step_id": "s00",
+      "action": "fill",
+      "target": {
+        "strategies": [
+          {
+            "kind": "role",
+            "value": "Member ID",
+            "role": "textbox"
+          },
+          {
+            "kind": "css",
+            "value": "input[name=member_id]",
+            "role": null
+          }
+        ],
+        "description": "textbox 'Member ID'"
+      },
+      "value": "{member_id}",
+      "risk": "safe",
+      "timeout_ms": 5000,
+      "expected_outcomes": [],
+      "extract_as": null
+    },
+    {
+      "step_id": "s01",
+      "action": "click",
+      "target": {
+        "strategies": [
+          {
+            "kind": "role",
+            "value": "Look Up",
+            "role": "button"
+          }
+        ],
+        "description": "button 'Look Up'"
+      },
+      "value": null,
+      "risk": "safe",
+      "timeout_ms": 5000,
+      "expected_outcomes": [
+        {
+          "name": "member_not_found",
+          "detect": {
+            "strategies": [
+              {
+                "kind": "text",
+                "value": "No member record",
+                "role": null
+              }
+            ],
+            "description": "Not-found banner"
+          },
+          "outcome_class": "business_outcome",
+          "recovery": "stop_as_business_outcome",
+          "result_code": "MEMBER_NOT_FOUND",
+          "message_template": "No member found for the given ID.",
+          "recovery_locator": null
+        },
+        {
+          "name": "session_timeout",
+          "detect": {
+            "strategies": [
+              {
+                "kind": "text",
+                "value": "CoreServ Servicing Console - Login",
+                "role": null
+              }
+            ],
+            "description": "Redirected back to login (session expired)"
+          },
+          "outcome_class": "hard_failure",
+          "recovery": "escalate_to_human",
+          "result_code": "SESSION_EXPIRED",
+          "message_template": "The operator session expired mid-flow.",
+          "recovery_locator": null
+        }
+      ],
+      "extract_as": null
+    },
+    {
+      "step_id": "s02",
+      "action": "click",
+      "target": {
+        "strategies": [
+          {
+            "kind": "role",
+            "value": "View Record",
+            "role": "link"
+          }
+        ],
+        "description": "link 'View Record'"
+      },
+      "value": null,
+      "risk": "safe",
+      "timeout_ms": 5000,
+      "expected_outcomes": [
+        {
+          "name": "member_restricted",
+          "detect": {
+            "strategies": [
+              {
+                "kind": "text",
+                "value": "Access Restricted",
+                "role": null
+              }
+            ],
+            "description": "Access restricted banner"
+          },
+          "outcome_class": "business_outcome",
+          "recovery": "stop_as_business_outcome",
+          "result_code": "MEMBER_RESTRICTED",
+          "message_template": "Member is restricted; this action requires elevated permissions.",
+          "recovery_locator": null
+        }
+      ],
+      "extract_as": null
+    },
+    {
+      "step_id": "s03",
+      "action": "extract",
+      "target": {
+        "strategies": [
+          {
+            "kind": "xpath",
+            "value": "//tr[td[1][contains(., 'Savings Balance')]]/td[2]",
+            "role": null
+          }
+        ],
+        "description": "savings balance cell"
+      },
+      "value": null,
+      "risk": "safe",
+      "timeout_ms": 5000,
+      "expected_outcomes": [],
+      "extract_as": "savings_balance"
+    }
+  ],
+  "success_checkpoint": {
+    "strategies": [
+      {
+        "kind": "text",
+        "value": "Member Record",
+        "role": null
+      }
+    ],
+    "description": "Member Record heading"
+  },
+  "vendor_product": "coreserv",
+  "tenant_overrides": {}
+}

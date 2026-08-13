@@ -1,0 +1,13 @@
+{
+  "status": "business_outcome",
+  "artifact_id": "cap_sample0001",
+  "artifact_version": "1.0.0",
+  "outputs": {},
+  "result_code": "MEMBER_RESTRICTED",
+  "message": "Member is restricted; this action requires elevated permissions.",
+  "failed_step_id": "s02",
+  "expected": null,
+  "observed": null,
+  "evidence_path": null,
+  "intervention_id": null
+}

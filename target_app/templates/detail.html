@@ -1,0 +1,18 @@
+<html><head><title>CoreServ - Member Detail</title></head>
+<body bgcolor="#f0f0f0">
+<table width="600" cellpadding="8" cellspacing="0" border="1" align="center">
+<tr><td bgcolor="#003366"><font color="white"><b>Member Record</b></font>
+<a href="/logout" style="float:right"><font color="white">Log out</font></a></td></tr>
+<tr><td>
+<table cellpadding="6">
+<tr><td width="180"><b>Member ID</b></td><td>{{ member.id }}</td></tr>
+<tr><td><b>Name</b></td><td>{{ member.name }}</td></tr>
+<tr><td><b>Savings Balance</b></td><td>${{ "%.2f"|format(member.savings_balance) }}</td></tr>
+</table>
+<p>
+<a href="/members/search">&laquo; Back to Search</a> &nbsp;|&nbsp;
+<a href="/members/{{ member.id }}/open-subaccount">Open Sub-Account</a>
+</p>
+</td></tr>
+</table>
+</body></html>

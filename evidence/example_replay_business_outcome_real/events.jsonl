@@ -1,0 +1,5 @@
+{"ts": "2026-08-13T21:58:05.794422+00:00", "run_id": "replay-20260813T215805-85204e", "mode": "replay", "event": "replay_start", "artifact_id": "cap_3be0abfd5d", "version": "1.0.0", "params": "{'member_id': '99999'}"}
+{"ts": "2026-08-13T21:58:07.624192+00:00", "run_id": "replay-20260813T215805-85204e", "mode": "replay", "event": "step_executed", "step_id": "s00", "action": "navigate"}
+{"ts": "2026-08-13T21:58:07.677417+00:00", "run_id": "replay-20260813T215805-85204e", "mode": "replay", "event": "step_executed", "step_id": "s01", "action": "fill"}
+{"ts": "2026-08-13T21:58:08.239450+00:00", "run_id": "replay-20260813T215805-85204e", "mode": "replay", "event": "step_executed", "step_id": "s02", "action": "click"}
+{"ts": "2026-08-13T21:58:08.261421+00:00", "run_id": "replay-20260813T215805-85204e", "mode": "replay", "event": "expected_outcome_matched", "step_id": "s02", "outcome": "member_not_found", "outcome_class": "business_outcome"}

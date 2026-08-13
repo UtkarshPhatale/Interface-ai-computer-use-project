@@ -1,0 +1,5 @@
+{"ts": "2026-08-13T19:29:20.045745+00:00", "run_id": "replay-20260813T192920-aeb84c", "mode": "replay", "event": "replay_start", "artifact_id": "cap_sample0001", "version": "1.0.0", "params": "{'member_id': '12345'}"}
+{"ts": "2026-08-13T19:29:21.059154+00:00", "run_id": "replay-20260813T192920-aeb84c", "mode": "replay", "event": "step_executed", "step_id": "s00", "action": "fill"}
+{"ts": "2026-08-13T19:29:21.625562+00:00", "run_id": "replay-20260813T192920-aeb84c", "mode": "replay", "event": "step_executed", "step_id": "s01", "action": "click"}
+{"ts": "2026-08-13T19:29:22.217285+00:00", "run_id": "replay-20260813T192920-aeb84c", "mode": "replay", "event": "step_executed", "step_id": "s02", "action": "click"}
+{"ts": "2026-08-13T19:29:22.240861+00:00", "run_id": "replay-20260813T192920-aeb84c", "mode": "replay", "event": "step_executed", "step_id": "s03", "action": "extract"}

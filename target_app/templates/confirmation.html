@@ -1,0 +1,15 @@
+<html><head><title>CoreServ - Sub-Account Confirmation</title></head>
+<body bgcolor="#f0f0f0">
+<table width="600" cellpadding="8" cellspacing="0" border="1" align="center">
+<tr><td bgcolor="#006633"><font color="white"><b>Sub-Account Opened Successfully</b></font></td></tr>
+<tr><td>
+<table cellpadding="6">
+<tr><td width="180"><b>Confirmation No.</b></td><td>{{ acct_id }}</td></tr>
+<tr><td><b>Member</b></td><td>{{ member.name }} ({{ member.id }})</td></tr>
+<tr><td><b>Account Type</b></td><td>{{ acct_type }}</td></tr>
+<tr><td><b>Initial Deposit</b></td><td>${{ "%.2f"|format(deposit) }}</td></tr>
+</table>
+<p><a href="/members/{{ member.id }}">&laquo; Back to Member Record</a></p>
+</td></tr>
+</table>
+</body></html>

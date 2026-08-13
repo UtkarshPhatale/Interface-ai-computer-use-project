@@ -1,0 +1,31 @@
+<html><head><title>CoreServ - Member Search</title></head>
+<body bgcolor="#f0f0f0">
+<table width="600" cellpadding="8" cellspacing="0" border="1" align="center">
+<tr><td bgcolor="#003366"><font color="white"><b>Member Search</b></font>
+<a href="/logout" style="float:right"><font color="white">Log out</font></a></td></tr>
+<tr><td>
+<form method="POST" action="/members/search">
+<table cellpadding="4">
+<tr><td>Member ID</td><td><input type="text" name="member_id" value="{{ query_id }}"></td>
+<td><input type="submit" value="Look Up"></td></tr>
+</table>
+</form>
+
+{% if not_found %}
+<p><font color="red"><b>No member record found for ID "{{ query_id }}".</b></font></p>
+{% endif %}
+
+{% if result %}
+<table width="100%" cellpadding="6" border="1">
+<tr bgcolor="#dddddd"><td><b>Member ID</b></td><td><b>Name</b></td><td><b>Action</b></td></tr>
+<tr>
+<td>{{ result.id }}</td>
+<td>{{ result.name }}</td>
+<td><a href="/members/{{ result.id }}">View Record</a></td>
+</tr>
+</table>
+{% endif %}
+
+</td></tr>
+</table>
+</body></html>

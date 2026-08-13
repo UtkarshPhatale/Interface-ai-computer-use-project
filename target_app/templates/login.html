@@ -1,0 +1,16 @@
+<html><head><title>CoreServ Legacy Terminal</title></head>
+<body bgcolor="#f0f0f0">
+<table width="400" cellpadding="8" cellspacing="0" border="1" align="center">
+<tr><td bgcolor="#003366"><font color="white"><b>CoreServ Servicing Console - Login</b></font></td></tr>
+<tr><td>
+{% if error %}<p><font color="red">{{ error }}</font></p>{% endif %}
+<form method="POST" action="/login">
+<table cellpadding="4">
+<tr><td>Username</td><td><input type="text" name="username"></td></tr>
+<tr><td>Password</td><td><input type="password" name="password"></td></tr>
+<tr><td colspan="2" align="right"><input type="submit" value="Sign In"></td></tr>
+</table>
+</form>
+</td></tr>
+</table>
+</body></html>

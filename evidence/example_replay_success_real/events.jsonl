@@ -1,0 +1,6 @@
+{"ts": "2026-08-13T21:57:14.310830+00:00", "run_id": "replay-20260813T215714-a12ccb", "mode": "replay", "event": "replay_start", "artifact_id": "cap_3be0abfd5d", "version": "1.0.0", "params": "{'member_id': '12345'}"}
+{"ts": "2026-08-13T21:57:16.210868+00:00", "run_id": "replay-20260813T215714-a12ccb", "mode": "replay", "event": "step_executed", "step_id": "s00", "action": "navigate"}
+{"ts": "2026-08-13T21:57:16.264060+00:00", "run_id": "replay-20260813T215714-a12ccb", "mode": "replay", "event": "step_executed", "step_id": "s01", "action": "fill"}
+{"ts": "2026-08-13T21:57:16.818772+00:00", "run_id": "replay-20260813T215714-a12ccb", "mode": "replay", "event": "step_executed", "step_id": "s02", "action": "click"}
+{"ts": "2026-08-13T21:57:17.403184+00:00", "run_id": "replay-20260813T215714-a12ccb", "mode": "replay", "event": "step_executed", "step_id": "s03", "action": "click"}
+{"ts": "2026-08-13T21:57:17.428935+00:00", "run_id": "replay-20260813T215714-a12ccb", "mode": "replay", "event": "step_executed", "step_id": "s04", "action": "extract"}

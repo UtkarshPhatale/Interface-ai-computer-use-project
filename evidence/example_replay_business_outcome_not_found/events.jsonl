@@ -1,0 +1,4 @@
+{"ts": "2026-08-13T19:29:22.515614+00:00", "run_id": "replay-20260813T192922-8c76dc", "mode": "replay", "event": "replay_start", "artifact_id": "cap_sample0001", "version": "1.0.0", "params": "{'member_id': '99999'}"}
+{"ts": "2026-08-13T19:29:23.541622+00:00", "run_id": "replay-20260813T192922-8c76dc", "mode": "replay", "event": "step_executed", "step_id": "s00", "action": "fill"}
+{"ts": "2026-08-13T19:29:24.111578+00:00", "run_id": "replay-20260813T192922-8c76dc", "mode": "replay", "event": "step_executed", "step_id": "s01", "action": "click"}
+{"ts": "2026-08-13T19:29:24.127597+00:00", "run_id": "replay-20260813T192922-8c76dc", "mode": "replay", "event": "expected_outcome_matched", "step_id": "s01", "outcome": "member_not_found", "outcome_class": "business_outcome"}
