@@ -48,8 +48,19 @@ STEP_RETRY_ATTEMPTS = 3
 STEP_RETRY_DELAY_S = 1.0
 
 
-def _resolve(page: Page, locator: Locator):
-    """Try each strategy in order; return the first that resolves to >=1 element."""
+def _resolve(page: Page, locator: Locator | None):
+    """Try each strategy in order; return the first that resolves to >=1 element.
+
+    Raises a clear LookupError (not an AttributeError) when the step's target
+    is None -- this happens today when discovery records a step (e.g. FILL)
+    without ever capturing a locator for it. That's a discovery-side gap, but
+    replay must still fail legibly rather than crash on `None.strategies`.
+    """
+    if locator is None:
+        raise LookupError(
+            "Step has no target locator recorded (target=None in the artifact). "
+            "This step cannot be replayed until discovery captures a locator for it."
+        )
     last_exc = None
     for strat in locator.strategies:
         try:
