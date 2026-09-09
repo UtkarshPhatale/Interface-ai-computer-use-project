@@ -1,0 +1,26 @@
+<html><head><title>PackTrack Dispatcher Console</title>
+    <style>
+      body { font-family: Verdana, sans-serif; background: #eaeaea; }
+      .box { max-width: 340px; margin: 60px auto; background: white; padding: 20px; }
+      .field { margin-bottom: 12px; }
+      .fakebtn { background: #2b5fa8; color: white; padding: 8px 14px; text-align: center;
+                 cursor: pointer; width: 100px; user-select: none; }
+      .err { color: #b00020; font-size: 0.9em; }
+    </style>
+    </head>
+    <body>
+    <div class="box">
+      <div><b>PackTrack</b> &mdash; Dispatcher Sign In</div>
+      {% if error %}<div class="err">{{ error }}</div>{% endif %}
+      <form method="POST" action="/login" id="loginForm">
+        <div class="field"><span>Dispatcher ID</span><br><input type="text" id="userfield"></div>
+        <div class="field"><span>Passcode</span><br><input type="password" id="passfield"></div>
+        <!-- No submit button at all: a div styled as a button, wired via JS,
+             which is a very common real-world legacy-app pattern that produces
+             no accessible role whatsoever. -->
+        <div class="fakebtn" onclick="document.getElementById('u').value=document.getElementById('userfield').value; document.getElementById('p').value=document.getElementById('passfield').value; document.getElementById('loginForm').submit();">Sign In</div>
+        <input type="hidden" name="username" id="u">
+        <input type="hidden" name="password" id="p">
+      </form>
+    </div>
+    </body></html>

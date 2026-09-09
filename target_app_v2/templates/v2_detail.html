@@ -1,0 +1,22 @@
+<html><head><title>PackTrack - Shipment Detail</title>
+    <style>
+      body { font-family: Verdana, sans-serif; background: #f7f7f7; }
+      .wrap { max-width: 640px; margin: 30px auto; }
+      .header { background: #2b5fa8; color: white; padding: 10px 16px; }
+      .panel { background: white; padding: 20px; }
+      .row { margin-bottom: 8px; }
+      .back { color: #2b5fa8; cursor: pointer; text-decoration: underline; margin-top: 16px; display: inline-block; }
+    </style>
+    </head>
+    <body>
+    <div class="wrap">
+      <div class="header"><b>Shipment Detail</b></div>
+      <div class="panel">
+        <div class="row"><b>Package ID:</b> {{ package.id }}</div>
+        <div class="row"><b>Recipient:</b> {{ package.recipient }}</div>
+        <div class="row"><b>Status:</b> {{ package.status }}</div>
+        <div class="row"><b>Estimated Arrival:</b> {{ package.eta }}</div>
+        <span class="back" onclick="window.location.href='/packages/search'">&laquo; Back to search</span>
+      </div>
+    </div>
+    </body></html>

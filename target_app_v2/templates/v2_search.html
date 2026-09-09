@@ -1,0 +1,44 @@
+<html><head><title>PackTrack - Search</title>
+    <style>
+      body { font-family: Verdana, sans-serif; background: #f7f7f7; }
+      .wrap { max-width: 640px; margin: 30px auto; }
+      .header { background: #2b5fa8; color: white; padding: 10px 16px; }
+      .header .logout { float: right; cursor: pointer; }
+      .panel { background: white; padding: 20px; }
+      .fakebtn { background: #2b5fa8; color: white; padding: 8px 14px; display: inline-block;
+                 cursor: pointer; user-select: none; margin-left: 8px; }
+      .not-found { color: #b00020; margin-top: 14px; }
+      .result-card { border: 1px solid #ccc; padding: 14px; margin-top: 14px; }
+      .result-row { margin-bottom: 6px; }
+      .view-link { color: #2b5fa8; cursor: pointer; text-decoration: underline; }
+    </style>
+    </head>
+    <body>
+    <div class="wrap">
+      <div class="header"><b>Package Search</b>
+        <span class="logout" onclick="window.location.href='/logout'">Log out</span>
+      </div>
+      <div class="panel">
+        <form method="POST" action="/packages/search" id="searchForm">
+          <span>Package ID</span>
+          <input type="text" id="pkgfield" value="{{ query_id }}">
+          <div class="fakebtn" onclick="document.getElementById('pid').value=document.getElementById('pkgfield').value; document.getElementById('searchForm').submit();">Search</div>
+          <input type="hidden" name="package_id" id="pid">
+        </form>
+    
+        {% if not_found %}
+        <div class="not-found">We could not find a package matching "{{ query_id }}".</div>
+        {% endif %}
+    
+        {% if result %}
+        <div class="result-card">
+          <div class="result-row"><b>ID:</b> {{ result.id }}</div>
+          <div class="result-row"><b>Recipient:</b> {{ result.recipient }}</div>
+          <div class="result-row">
+            <span class="view-link" onclick="window.location.href='/packages/{{ result.id }}'">View shipment details</span>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    </body></html>
