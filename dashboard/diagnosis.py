@@ -100,6 +100,16 @@ def diagnose(run_id: str) -> Optional[FailureDiagnosis]:
             f"on the page at all (real DOM change), not a missing-strategy gap."
         )
         recommendation = "This is a genuine self-healing candidate: capture a DOM snapshot and re-discover this step's locator."
+    elif "AttributeError" in observed and "'NoneType' object has no attribute 'strategies'" in observed:
+        cause = (
+            f"Step's target locator was None entirely (no strategies ever recorded for this "
+            f"step by discovery), which crashed the resolver: {observed}"
+        )
+        recommendation = (
+            "Fixed in replay/engine.py: _resolve() now raises a clear LookupError for a None "
+            "target instead of crashing (see tests/test_replay.py). This run predates that fix; "
+            "kept here as the evidence that motivated it, not a currently-reproducible bug."
+        )
     else:
         cause = f"Step failed with a non-locator error: {observed}"
         recommendation = "Inspect manually; not a locator-resolution failure."

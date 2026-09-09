@@ -13,8 +13,27 @@ from collections import Counter
 from pathlib import Path
 
 from dashboard.aggregator import load_all_runs
+from dashboard.diagnosis import diagnose
 
 OUTPUT_PATH = Path(__file__).parent / "report.html"
+
+
+def _diagnosis_row(run_id: str) -> str:
+    """Render an extra explanatory row directly under a hard-failure run,
+    reusing dashboard.diagnosis so the report and the CLI tool never drift
+    out of sync -- one diagnosis implementation, two presentations."""
+    d = diagnose(run_id)
+    if not d:
+        return ""
+    missing = f" Missing: {', '.join(d.strategies_missing)}." if d.strategies_missing else ""
+    return (
+        f"<tr class='diagnosis-row'>"
+        f"<td></td>"
+        f"<td colspan='5'>"
+        f"<div class='diagnosis'><strong>Diagnosis:</strong> {d.likely_cause}{missing}"
+        f"<div class='recommendation'><strong>Suggested fix:</strong> {d.recommendation}</div>"
+        f"</div></td></tr>"
+    )
 
 
 def build_report() -> str:
@@ -38,6 +57,7 @@ def build_report() -> str:
         f"<td>{r.num_retries}</td>"
         f"<td>{r.num_escalations}</td>"
         f"</tr>"
+        + (_diagnosis_row(r.run_id) if r.status == "hard_failure" else "")
         for r in runs
     )
 
@@ -71,6 +91,10 @@ def build_report() -> str:
   .status-success {{ color: #1a7f37; }}
   .status-hard_failure {{ color: #c62828; }}
   .status-business_outcome {{ color: #8a5a00; }}
+  .diagnosis-row td {{ border-bottom: 1px solid #eee; padding: 0 10px 12px 10px; }}
+  .diagnosis {{ background: #fff5f5; border-left: 3px solid #c62828; padding: 10px 14px;
+                border-radius: 4px; font-size: 0.85em; color: #444; }}
+  .diagnosis .recommendation {{ margin-top: 6px; color: #333; }}
 </style>
 </head>
 <body>
