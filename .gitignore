@@ -7,3 +7,4 @@ artifacts/
 venv/
 node_modules/
 .DS_Store
+dashboard/report.html
