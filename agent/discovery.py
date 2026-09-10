@@ -167,9 +167,28 @@ def _locate(page: Page, role: str, name: str):
     following this label text" fallback, which covers the common legacy
     pattern where a field's label is an unassociated table cell (no
     <label for=...>, no aria-label).
+
+    Text fallback tries EXACT match before substring match. Root cause this
+    guards against (found via target_app_v2, evidence/runs/discovery-
+    20260909T235011-3c5c35): a page with both "Package Search" (a header)
+    and "Search" (a clickable div) on it -- get_by_text("Search",
+    exact=False).first silently matched the inert header text first (DOM
+    order), because "Search" is a substring of "Package Search". The click
+    executed without error and had zero effect, and the caller had no way
+    to tell the difference from a real click, since Playwright doesn't
+    raise just because a click landed on the "wrong" (but real) element.
+    Preferring an exact match first resolves this whenever the target
+    element's full text is exactly the name being searched for, which is
+    the common case for short button/link labels.
     """
+    def _text_locator(text_name: str):
+        exact_loc = page.get_by_text(text_name, exact=True)
+        if exact_loc.count() > 0:
+            return exact_loc.first
+        return page.get_by_text(text_name, exact=False).first
+
     if role == "text":
-        return page.get_by_text(name, exact=False).first
+        return _text_locator(name)
 
     try:
         loc = page.get_by_role(role, name=name, exact=False).first
@@ -191,13 +210,13 @@ def _locate(page: Page, role: str, name: str):
         return page.get_by_role(role, name=name, exact=False).first
 
     try:
-        loc = page.get_by_text(name, exact=False).first
+        loc = _text_locator(name)
         if loc.count() > 0:
             return loc
     except Exception:
         pass
 
-    return page.get_by_text(name, exact=False).first
+    return _text_locator(name)
 
 
 class DiscoveryAgent:
