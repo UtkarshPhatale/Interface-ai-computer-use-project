@@ -41,11 +41,20 @@ def main():
     ap.add_argument("--headed", action="store_true", help="Show the browser window (recommended on macOS)")
     ap.add_argument("--session", default=None, help="Path to a storage-state JSON from login_session.py")
     ap.add_argument("--no-escalate", action="store_true", help="Disable human escalation (fail instead of blocking)")
+    ap.add_argument(
+        "--allowed-route-prefix", action="append", default=[],
+        help="Extra allowed route prefix, repeatable (e.g. --allowed-route-prefix /packages). "
+             "Defaults to target_app's routes (/login, /members, /logout) if none given, "
+             "so pass this explicitly when discovering against a different target app.",
+    )
     args = ap.parse_args()
 
     params = parse_params(args.param)
     logger = RunLogger.create(mode="discovery")
-    guardrails = GuardrailEngine(AllowlistConfig())
+    allowlist = AllowlistConfig()
+    if args.allowed_route_prefix:
+        allowlist.allowed_route_prefixes = list(allowlist.allowed_route_prefixes) + args.allowed_route_prefix
+    guardrails = GuardrailEngine(allowlist)
     agent = DiscoveryAgent(
         guardrails=guardrails, logger=logger, headless=not args.headed,
         escalate_enabled=not args.no_escalate, storage_state_path=args.session,
