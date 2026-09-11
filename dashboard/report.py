@@ -41,8 +41,18 @@ def build_report() -> str:
     replay_runs = [r for r in runs if r.mode == "replay"]
     discovery_runs = [r for r in runs if r.mode == "discovery"]
 
-    status_counts = Counter(r.status for r in replay_runs if r.status)
-    total_replays = len(replay_runs)
+    # Only count replay runs that actually reached an outcome. A replay
+    # with status=None and 0 steps never executed anything -- e.g. it was
+    # rejected by the guardrails allowlist before the first action (see
+    # FINDINGS.md Finding #3: target_app_v2 runs made before the
+    # --allowed-route-prefix flag existed). Counting those against the
+    # success rate conflates "the agent tried and failed" with "the run
+    # never started," which understates the real success rate.
+    attempted_replays = [r for r in replay_runs if r.status is not None]
+    never_started_replays = [r for r in replay_runs if r.status is None]
+
+    status_counts = Counter(r.status for r in attempted_replays if r.status)
+    total_replays = len(attempted_replays)
     success_rate = (status_counts.get("success", 0) / total_replays * 100) if total_replays else 0.0
 
     total_retries = sum(r.num_retries for r in runs)
@@ -99,13 +109,19 @@ def build_report() -> str:
 </head>
 <body>
   <h1>Computer-Use Automation Agent — Run Report</h1>
-  <p style="color:#666">Generated from {len(runs)} logged runs ({len(discovery_runs)} discovery, {len(replay_runs)} replay).</p>
+  <p style="color:#666">Generated from {len(runs)} logged runs ({len(discovery_runs)} discovery, {len(replay_runs)} replay).{
+    f" {len(never_started_replays)} replay run(s) excluded from the success rate below: they never executed a step (e.g. blocked by the guardrails allowlist before a CLI fix), not agent failures." if never_started_replays else ""
+  }</p>
 
   <div class="stat-grid">
-    <div class="stat-card"><div class="value">{success_rate:.0f}%</div><div class="label">Replay success rate</div></div>
+    <div class="stat-card"><div class="value">{success_rate:.0f}%</div><div class="label">Replay success rate ({total_replays} attempted)</div></div>
     <div class="stat-card"><div class="value">{total_retries}</div><div class="label">Total step retries</div></div>
     <div class="stat-card"><div class="value">{total_escalations}</div><div class="label">Human escalations</div></div>
   </div>
+
+  <p style="color:#666; font-size:0.85em;">Note: this includes historical runs kept as evidence for fixed bugs
+  (see FINDINGS.md) alongside current runs -- the hard-failure rows below with a pink diagnosis box are explained
+  and fixed, not open issues.</p>
 
   <h3>Replay outcome breakdown</h3>
   {status_bars if status_bars else "<p>No replay runs with a recorded status yet.</p>"}
