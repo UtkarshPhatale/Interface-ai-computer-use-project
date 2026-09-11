@@ -209,6 +209,29 @@ def _locate(page: Page, role: str, name: str):
         # caller's own timeout/error path produces a clear failure.
         return page.get_by_role(role, name=name, exact=False).first
 
+    if role in ("button", "link"):
+        # Click-target xpath fallback (the gap flagged as "Finding #1" in
+        # FINDINGS.md): tried BEFORE plain text matching, not after --
+        # otherwise a label like <span>View Record</span> would already
+        # "successfully" match via _text_locator below, even when the real
+        # clickable element is a separate sibling with no text of its own
+        # (e.g. an icon-only <div onclick=...> next to the label). This is
+        # the click-target analogue of the textbox xpath fallback above:
+        # "nearest following input" becomes "nearest following
+        # clickable-looking element" (button, a, onclick attr, or
+        # role=button/link).
+        try:
+            xp = (
+                f"xpath=//*[contains(normalize-space(text()), '{name}')]"
+                f"/following::*[self::button or self::a or @onclick "
+                f"or @role='button' or @role='link'][1]"
+            )
+            loc = page.locator(xp).first
+            if loc.count() > 0:
+                return loc
+        except Exception:
+            pass
+
     try:
         loc = _text_locator(name)
         if loc.count() > 0:

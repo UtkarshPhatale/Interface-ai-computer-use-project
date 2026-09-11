@@ -60,3 +60,62 @@ def test_locate_text_falls_back_to_substring_when_no_exact_match_exists():
         browser.close()
 
     assert resolved_id == "only"
+
+
+SIBLING_CLICKABLE_HTML = """
+<html><body>
+  <div>
+    <span>View Record</span>
+    <div id="real-target" class="icon-btn" onclick="document.title='clicked'"></div>
+  </div>
+</body></html>
+"""
+
+
+def test_locate_click_target_finds_sibling_element_not_its_label():
+    """Finding #1 from FINDINGS.md: a row-action pattern where the visible
+    label ("View Record") sits in its own element, and the actual
+    clickable target is a separate sibling with no text of its own (e.g.
+    an icon-only button). Without the xpath "nearest following clickable
+    element" fallback, _locate would resolve to the label span itself
+    (an exact text match "succeeds" but clicking it does nothing)."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.set_content(SIBLING_CLICKABLE_HTML)
+
+        loc = _locate(page, "button", "View Record")
+        resolved_id = loc.evaluate("e => e.id")
+
+        browser.close()
+
+    assert resolved_id == "real-target", (
+        "Expected _locate to skip the label and find the sibling "
+        "clickable element, but it resolved something else."
+    )
+
+
+SELF_LABELED_CLICKABLE_HTML = """
+<html><body>
+  <b>Package Search</b>
+  <div id="fakebtn" class="fakebtn" onclick="document.title='clicked'">Search</div>
+</body></html>
+"""
+
+
+def test_locate_click_target_still_resolves_itself_when_self_labeled():
+    """Regression guard for the earlier Finding #5 fix: when the clickable
+    element's OWN text is the exact match (not a separate label), the new
+    xpath-sibling fallback must not accidentally skip past it to some
+    other 'following' element."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.set_content(SELF_LABELED_CLICKABLE_HTML)
+
+        loc = _locate(page, "button", "Search")
+        resolved_id = loc.evaluate("e => e.id")
+
+        browser.close()
+
+    assert resolved_id == "fakebtn"
