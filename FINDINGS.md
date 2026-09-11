@@ -197,4 +197,12 @@ assumed from discovery working. It wasn't actually true until today.
   can't find the element?) rather than being rushed in on top of an
   already-complete story. Picking this up as a deliberate second phase,
   after metrics/README, rather than mid-stream.
-- No formal before/after cost/latency metrics yet -- next up.
+- **DONE:** cost and reliability metrics formalized as reproducible
+  scripts (`dashboard/cost_estimate.py`, `dashboard/reliability.py`),
+  both derived from real evidence, not invented numbers:
+  - Cost: ~$0.07/run in LLM spend avoided per replay (typical case,
+    Sonnet 4.6 public pricing, 7 real completed discovery runs, 5.1
+    average LLM calls/run)
+  - Reliability: 29% -> 100% replay success rate after fixing Findings
+    #2/#5/#6, with one non-code (stale session) failure explicitly
+    excluded and disclosed rather than folded into either number
