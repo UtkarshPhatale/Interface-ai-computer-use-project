@@ -93,6 +93,23 @@ def diagnose(run_id: str) -> Optional[FailureDiagnosis]:
             "fallbacks, or add a self-healing re-discovery pass (Week 2) that proposes a locator "
             "for the missing tiers automatically when this pattern is detected."
         )
+        if "text" in tried_kinds:
+            # Two distinct, already-fixed bugs in FINDINGS.md can both
+            # produce "a text strategy was present, yet nothing resolved":
+            # Finding #1 (no css/xpath fallback existed to catch the miss)
+            # and Findings #5/#6 (the text strategy DID match something --
+            # just the wrong element, via unsafe substring matching, so the
+            # real target was still effectively unresolved). Static
+            # evidence (the artifact + the error string) can't tell these
+            # apart after the fact -- that would need re-running against a
+            # live DOM snapshot from the time of the failure, which isn't
+            # captured. Say so honestly instead of guessing.
+            cause += (
+                " Note: since a 'text' strategy was present but still didn't resolve, this could "
+                "also be the pre-2026-09-10 substring-text-matching bug (Findings #5/#6 in "
+                "FINDINGS.md) rather than purely a missing-tier gap -- static evidence alone can't "
+                "distinguish the two for a historical run. Both are already fixed."
+            )
     elif "No strategy resolved" in observed:
         cause = (
             f"All {len(tried_kinds)} configured strategies ({', '.join(tried_kinds)}) failed, "
