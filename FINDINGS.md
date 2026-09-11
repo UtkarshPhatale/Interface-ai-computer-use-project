@@ -184,4 +184,17 @@ assumed from discovery working. It wasn't actually true until today.
 
 ## Open items / not yet done
 
-- No formal before/after cost/latency metrics yet (Week 4 per the plan).
+- **Self-healing re-discovery (deferred, not forgotten):** the original
+  plan's Week 2 called for an LLM-assisted pass that proposes a new
+  locator automatically when replay hits a hard failure, using a DOM
+  snapshot at failure time. `dashboard/diagnosis.py` covers the
+  *explain-why* half of this; the *propose-a-fix* half is intentionally
+  deferred. Reasoning: the project's current core claim -- deterministic,
+  zero-LLM-cost replay -- is fully proven and well-evidenced as of Day 7;
+  reintroducing an LLM call into the replay path is a second, different
+  thesis that deserves its own clean scoping (does it patch the artifact
+  in place? version it? retry just the one step? what if the LLM also
+  can't find the element?) rather than being rushed in on top of an
+  already-complete story. Picking this up as a deliberate second phase,
+  after metrics/README, rather than mid-stream.
+- No formal before/after cost/latency metrics yet -- next up.
