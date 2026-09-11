@@ -31,6 +31,20 @@ the whole original evidence set -- only role/text. Root cause traced to
 yet as of this writing -- documented as a known gap, candidate for a
 future day.
 
+**FIXED (Day 7):** added a click-target xpath fallback, mirroring the
+textbox one -- "nearest following input" becomes "nearest following
+clickable-looking element" (`button`, `a`, `@onclick`,
+`role=button`/`link`). Tried *before* plain text matching for
+`button`/`link` roles specifically, because otherwise a label element
+that happens to text-match would short-circuit the fallback before it's
+reached (e.g. `<span>View Record</span>` followed by a separate
+icon-only `<div onclick=...>` -- the span "matches" but isn't clickable
+in any useful way). Regression tests:
+`tests/test_discovery_locate.py::test_locate_click_target_finds_sibling_element_not_its_label`
+and `::test_locate_click_target_still_resolves_itself_when_self_labeled`
+(the second one guards against the new fallback breaking the Finding #5
+fix). Test suite: 14 -> 16 passing.
+
 **Finding #2 -- replay engine crash on `target=None`:**
 One artifact (`cap_a4783f4d47`) had a `fill` step with `target: null`
 recorded by an earlier discovery run. Replaying it crashed with
@@ -101,11 +115,73 @@ suite: 10 -> 14 passing tests across today's three fixes combined.
 
 ---
 
+## Day 7: Broader outcome coverage on target_app_v2 + Finding #1 closed
+
+Three more discovery runs against `target_app_v2`, rounding out the
+outcome-type coverage to match what `target_app` already demonstrated:
+
+- `discovery-20260910T055831-5f2117` -- **not found** case (`PK-0000`).
+  4 steps, correctly recognized the "no shipment record" message as a
+  legitimate outcome rather than a failure.
+- `discovery-20260910T060031-c83883` -- **restricted/held** case
+  (`PK-9000`, real HTTP 403 from the server). 5 steps, correctly reported
+  the 403 message as an access restriction instead of erroring out or
+  hallucinating shipment details.
+- Plus the earlier `lookup_package_status` (`PK-1001`) success case from
+  Day 6.
+
+`target_app_v2` now has real evidence for all three outcome classes
+(success / business outcome / restricted) on a structurally different
+app than the original, which is the actual generalization claim this
+whole exercise was meant to test.
+
+**Finding #6 -- the same bug, fixed in one file, still broken in its
+sibling (the most instructive result of this whole exercise):**
+
+After adding outcome coverage above, all three `target_app_v2` artifacts
+were replayed deterministically (no LLM) for the first time -- and all
+three hard-failed, 100%. Root cause: `replay/engine.py`'s `_resolve()`
+had its own, separate `get_by_text(..., exact=False)` text-matching
+logic -- the exact same substring-ambiguity bug fixed in Finding #5,
+except that fix only touched `agent/discovery.py`'s `_locate()`. The two
+functions look similar (this file's own docstring already claimed they
+"mirror" each other) but are independent implementations, and fixing one
+silently left the other broken. Concretely: `_resolve`'s text strategy for
+"Search" matched `<b>Package Search</b>` (the inert header) before the
+real button, for the identical DOM-order-plus-substring reason as
+Finding #5 -- so the click had no effect, and every step after it failed
+too, since the page never left the search form.
+
+Fixed: applied the same exact-then-substring fix to `_resolve()`.
+Regression test: `tests/test_replay.py::test_resolve_text_strategy_prefers_exact_match_over_substring`.
+Test suite: 16 -> 17 passing.
+
+**Before/after, same three artifacts, only the fix changed:**
+
+| Artifact | Before fix | After fix |
+|---|---|---|
+| `cap_53043bc026` (lookup_package_status, PK-1001) | `hard_failure` at step s01/s03 (see below) | `success`, outputs match discovery exactly |
+| `cap_a9447b47e3` (lookup_nonexistent_package, PK-0000) | `hard_failure` (same root cause) | `success` |
+| `cap_a65b404837` (lookup_held_package, PK-9000) | `hard_failure` (same root cause) | `success`, correctly reports the hold message as `hold_status_message` |
+
+(Note: the very first re-run after the fix still failed once, at step
+s01 -- but that was a stale/expired session cookie, ~10+ minutes old,
+not a code issue. Re-running `login_session.py` immediately before
+replay resolved it, confirming the session-timeout behavior is working
+as designed, not masking a real bug.)
+
+**Why this is the most important finding in the project:** it's not
+"a bug was found and fixed" -- that's Findings #2-5 too. It's "a fix
+applied in one place did not automatically apply to a structurally
+similar but independent implementation elsewhere," which is a very real
+and common failure mode in codebases with duplicated logic (discovery's
+live execution and replay's deterministic execution necessarily
+duplicate some locator logic, since one drives an LLM loop and the other
+doesn't). The lesson that matters for this project's actual thesis --
+"deterministic replay reproduces what discovery found, with zero
+inference cost" -- is that this guarantee needed to be *tested*, not
+assumed from discovery working. It wasn't actually true until today.
+
 ## Open items / not yet done
 
-- Finding #1 above (xpath fallback never fires for click targets, only
-  form-control roles) is still open -- worth deciding whether it's a Week
-  2 self-healing item or a smaller standalone fix.
 - No formal before/after cost/latency metrics yet (Week 4 per the plan).
-- Second target app has only been exercised for one flow (package lookup);
-  the "held package" (403) and "not found" cases aren't yet discovered/replayed.

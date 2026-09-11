@@ -34,13 +34,23 @@ def main():
     ap.add_argument("--headed", action="store_true")
     ap.add_argument("--session", default=None, help="Path to a storage-state JSON from login_session.py")
     ap.add_argument("--no-escalate", action="store_true")
+    ap.add_argument(
+        "--allowed-route-prefix", action="append", default=[],
+        help="Extra allowed route prefix, repeatable (e.g. --allowed-route-prefix /packages). "
+             "Same purpose as run_agent.py's flag -- replay has its own separate "
+             "GuardrailEngine/AllowlistConfig, so this needs to be passed here too "
+             "when replaying an artifact recorded against a non-default target app.",
+    )
     args = ap.parse_args()
 
     artifact = CapabilityArtifact.model_validate_json(Path(args.artifact).read_text())
     params = parse_params(args.param)
 
     logger = RunLogger.create(mode="replay")
-    guardrails = GuardrailEngine(AllowlistConfig())
+    allowlist = AllowlistConfig()
+    if args.allowed_route_prefix:
+        allowlist.allowed_route_prefixes = list(allowlist.allowed_route_prefixes) + args.allowed_route_prefix
+    guardrails = GuardrailEngine(allowlist)
     engine = ReplayEngine(
         guardrails=guardrails, logger=logger, headless=not args.headed,
         escalate_enabled=not args.no_escalate, storage_state_path=args.session,

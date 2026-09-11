@@ -67,7 +67,21 @@ def _resolve(page: Page, locator: Locator | None):
             if strat.kind == LocatorKind.ROLE and strat.role:
                 loc = page.get_by_role(strat.role, name=strat.value, exact=False).first
             elif strat.kind == LocatorKind.TEXT:
-                loc = page.get_by_text(strat.value, exact=False).first
+                # Exact match first, substring as fallback -- mirrors the
+                # fix in agent/discovery.py's _locate() (see FINDINGS.md
+                # Finding #5). This file's docstring already claimed the
+                # two matched; they didn't, until now. Root cause of all
+                # three target_app_v2 replay hard-failures on 2026-09-10
+                # (cap_53043bc026, cap_a65b404837, cap_a9447b47e3): a
+                # substring-only match on "Search" resolved to the inert
+                # "Package Search" header instead of the real button, so
+                # the click had no effect and every step after it failed
+                # because the page never navigated off the search form.
+                exact_loc = page.get_by_text(strat.value, exact=True)
+                if exact_loc.count() > 0:
+                    loc = exact_loc.first
+                else:
+                    loc = page.get_by_text(strat.value, exact=False).first
             elif strat.kind == LocatorKind.CSS:
                 loc = page.locator(strat.value).first
             elif strat.kind == LocatorKind.XPATH:
