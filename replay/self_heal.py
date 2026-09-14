@@ -34,7 +34,6 @@ Design decisions, made explicit rather than left implicit in the code:
 """
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -105,8 +104,7 @@ class SelfHealer:
 
     def propose_locator(self, page: Page, target_description: str, tried_strategies: list[LocatorStrategy]) -> HealResult:
         tried_desc = "; ".join(f"{s.kind.value}='{s.value}'" for s in tried_strategies)
-        snapshot = page.accessibility.snapshot()
-        snapshot_json = json.dumps(snapshot, indent=None)[:8000]  # bound prompt size
+        snapshot_yaml = page.aria_snapshot(mode="ai")[:8000]  # bound prompt size
 
         message = self.client.messages.create(
             model=MODEL,
@@ -119,8 +117,7 @@ class SelfHealer:
                 "content": (
                     f"Target element description: {target_description}\n"
                     f"Strategies already tried and failed: {tried_desc}\n\n"
-                    f"Current page accessibility tree (JSON, possibly truncated):\n{snapshot_json}"
-                ),
+                    f"Current page accessibility tree (YAML, possibly truncated):\n{snapshot_yaml}"                ),
             }],
         )
 
