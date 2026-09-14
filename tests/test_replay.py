@@ -93,3 +93,67 @@ def test_resolve_text_strategy_prefers_exact_match_over_substring():
         "Expected _resolve to find the exact-text match (the real "
         "button), not the substring-matching header."
     )
+
+
+def test_run_step_self_heal_success_with_no_expected_outcome_is_not_reported_as_failure(tmp_path, monkeypatch):
+    """Regression test for a real bug found in manual end-to-end testing of
+    replay/self_heal.py: _attempt_self_heal returning None to mean "healing
+    didn't help" was indistinguishable from a successful heal whose step had
+    no matching expected_outcome (which also produces None from
+    _check_expected_outcomes). The caller (_run_step) treated any None from
+    _attempt_self_heal as "fall through to hard failure" -- so a genuinely
+    successful heal was being reported as hard_failure. Fixed with a
+    dedicated sentinel (_SELF_HEAL_SUCCEEDED_NO_OUTCOME) distinct from None.
+    This test exercises _run_step directly (not a live browser) by
+    monkeypatching the execution/outcome-checking internals, since the bug
+    was in _run_step's control flow, not in any browser interaction."""
+    from unittest.mock import MagicMock, patch
+    from artifact.schema import (
+        ActionType, CapabilityArtifact, CapabilityContract, Locator,
+        LocatorKind, LocatorStrategy, Step,
+    )
+    from evidence.logger import RunLogger
+    from guardrails.policy import AllowlistConfig, GuardrailEngine
+    from replay.engine import ReplayEngine
+    from replay.self_heal import HealResult
+ 
+    artifact = CapabilityArtifact(
+        artifact_id="cap_unit", name="unit_test",
+        contract=CapabilityContract(goal_description="t", target_app="t", entry_url="http://x",
+                                     input_schema=[], output_schema=[]),
+        steps=[Step(step_id="s01", action=ActionType.CLICK,
+                    target=Locator(description="button 'X'",
+                                    strategies=[LocatorStrategy(kind=LocatorKind.ROLE, value="X", role="button")]))],
+        success_checkpoint=Locator(description="done", strategies=[LocatorStrategy(kind=LocatorKind.TEXT, value="Done")]),
+    )
+ 
+    engine = ReplayEngine(
+        guardrails=GuardrailEngine(AllowlistConfig()),
+        logger=RunLogger.create(mode="replay"),
+        self_heal_enabled=True, artifacts_dir=tmp_path,
+    )
+ 
+    mock_healer = MagicMock()
+    mock_healer.propose_locator.return_value = HealResult(
+        healed=True, new_strategy=LocatorStrategy(kind=LocatorKind.TEXT, value="X"), reasoning="t",
+    )
+ 
+    # Every normal execution attempt fails (forces the retry loop to exhaust
+    # and reach the self-heal branch); the healed-locator execution and the
+    # outcome check both succeed with "nothing special happened".
+    monkeypatch.setattr(engine, "_execute_step",
+                         lambda page, s, params, outputs: (_ for _ in ()).throw(LookupError("no match")))
+    monkeypatch.setattr(engine, "_execute_step_with_locator", lambda page, s, params, outputs, loc: None)
+    monkeypatch.setattr(engine, "_check_expected_outcomes", lambda page, art, s, params, exc: None)
+ 
+    with patch("replay.self_heal.SelfHealer", return_value=mock_healer), \
+         patch("replay.engine._resolve", return_value=(MagicMock(), None)), \
+         patch("replay.engine.time.sleep"):
+        result = engine._run_step(MagicMock(), artifact, artifact.steps[0], {}, {})
+ 
+    assert result is None, (
+        "A successful self-heal with no matching expected_outcome should "
+        "behave like an ordinary successful step (None, meaning 'continue "
+        "to the next step'), not be reported as hard_failure."
+    )
+ 

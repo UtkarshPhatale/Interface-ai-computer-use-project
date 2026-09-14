@@ -41,6 +41,14 @@ def main():
              "GuardrailEngine/AllowlistConfig, so this needs to be passed here too "
              "when replaying an artifact recorded against a non-default target app.",
     )
+    ap.add_argument(
+        "--self-heal", action="store_true",
+        help="OPT-IN. On a locator hard-failure, make one LLM call to propose a new "
+             "locator, try it live, and if it works, save a new artifact version with "
+             "it added (additive, never overwrites the original). Requires "
+             "ANTHROPIC_API_KEY. Without this flag, replay makes ZERO LLM calls, "
+             "unchanged from before this feature existed -- see replay/self_heal.py.",
+    )
     args = ap.parse_args()
 
     artifact = CapabilityArtifact.model_validate_json(Path(args.artifact).read_text())
@@ -54,6 +62,7 @@ def main():
     engine = ReplayEngine(
         guardrails=guardrails, logger=logger, headless=not args.headed,
         escalate_enabled=not args.no_escalate, storage_state_path=args.session,
+        self_heal_enabled=args.self_heal, artifacts_dir=Path(args.artifact).parent,
     )
 
     print(f"Replay run: {logger.run_id}")

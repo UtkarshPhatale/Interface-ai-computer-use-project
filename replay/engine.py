@@ -28,11 +28,20 @@ Final success requires BOTH "ran out of steps without a stop" AND the
 artifact's success_checkpoint resolving on the page -- executing the last
 click is not proof the goal was reached (Section 1's "assuming the click
 worked" pitfall, named directly in the glossary's Checkpoint entry).
+
+Self-healing note: this file makes NO LLM calls by default, preserving the
+deterministic/zero-cost replay guarantee (see dashboard/reliability.py,
+dashboard/cost_estimate.py). An OPT-IN self-heal path exists
+(self_heal_enabled=True / run_replay.py's --self-heal flag) that calls out
+to replay/self_heal.py on a locator hard-failure specifically -- see that
+module's docstring for the full design. Plain replay, the default, is
+unaffected and remains LLM-free.
 """
 from __future__ import annotations
 
 import re
 import time
+from pathlib import Path
 
 from playwright.sync_api import Page, sync_playwright
 
@@ -46,6 +55,7 @@ from guardrails.policy import GuardrailEngine, PolicyViolation
 
 STEP_RETRY_ATTEMPTS = 3
 STEP_RETRY_DELAY_S = 1.0
+_SELF_HEAL_SUCCEEDED_NO_OUTCOME = object()
 
 
 def _resolve(page: Page, locator: Locator | None):
@@ -109,13 +119,20 @@ def _fill_params(value: str | None, params: dict) -> str | None:
 class ReplayEngine:
     def __init__(self, guardrails: GuardrailEngine, logger: RunLogger, headless: bool = True,
                  escalate_enabled: bool = True, escalate_timeout: float = 900.0,
-                 storage_state_path: str | None = None):
+                 storage_state_path: str | None = None, self_heal_enabled: bool = False,
+                 artifacts_dir: Path | None = None):
         self.guardrails = guardrails
         self.logger = logger
         self.headless = headless
         self.escalate_enabled = escalate_enabled
         self.escalate_timeout = escalate_timeout
         self.storage_state_path = storage_state_path
+        # Opt-in only -- see replay/self_heal.py's module docstring point 3.
+        # Plain ReplayEngine() with no flag makes zero LLM calls, unchanged
+        # from before this feature existed.
+        self.self_heal_enabled = self_heal_enabled
+        self.artifacts_dir = artifacts_dir or Path(__file__).parent.parent / "artifacts"
+        self._healer = None
 
     def replay(self, artifact: CapabilityArtifact, params: dict) -> ReplayResult:
         self._validate_params(artifact, params)
@@ -192,6 +209,26 @@ class ReplayEngine:
                     self.logger.log("step_retry", step_id=step.step_id, attempt=attempt, error=str(ex))
                     time.sleep(STEP_RETRY_DELAY_S)
                     continue
+                # Self-heal: one extra attempt, opt-in only (self.self_heal_enabled),
+                # and only for locator-resolution failures specifically (LookupError),
+                # not arbitrary exceptions like a navigation timeout -- those aren't
+                # "the locator was wrong," they're a different class of problem
+                # self-healing a locator can't fix. See replay/self_heal.py's module
+                # docstring for the full design rationale.
+                if self.self_heal_enabled and isinstance(ex, LookupError) and step.target is not None:
+                    healed_outcome = self._attempt_self_heal(page, artifact, step, params, outputs, ex)
+                    if healed_outcome is _SELF_HEAL_SUCCEEDED_NO_OUTCOME:
+                        # Step completed via the healed locator, no special
+                        # outcome matched -- same as an ordinary successful
+                        # step. Break out of the retry loop and let _run_step
+                        # continue to its own post-loop outcome check / the
+                        # caller's next step, exactly like the normal
+                        # success path a few lines below this whole block.
+                        break
+                    if healed_outcome is not None:
+                        return healed_outcome
+                    # Healing didn't produce a working result -- fall through to the
+                    # normal hard-failure path below, unchanged.
                 self._screenshot(page, f"{step.step_id}_hard_failure")
                 return ReplayResult(
                     status=ReplayStatus.HARD_FAILURE, artifact_id=artifact.artifact_id,
@@ -206,6 +243,101 @@ class ReplayEngine:
         # business-outcome banner that renders on a 200 page, not an exception).
         outcome_result = self._check_expected_outcomes(page, artifact, step, params, None)
         return outcome_result
+    
+    def _attempt_self_heal(self, page: Page, artifact: CapabilityArtifact, step, params: dict,
+                            outputs: dict, original_exc: Exception) -> ReplayResult | None:
+        """One extra, clearly-logged attempt using an LLM-proposed locator
+        before giving up. Returns a ReplayResult if the healed locator
+        worked (SUCCESS-shaped, same as a normal step pass), or None if
+        healing didn't help -- in which case the caller falls through to
+        the normal hard-failure path unchanged. Never raises: any failure
+        in the healing attempt itself (no API key, LLM error, proposed
+        locator also doesn't resolve) is treated as "healing didn't help",
+        not a new error path.
+        """
+        from replay.self_heal import SelfHealer, apply_heal_and_save  # local import: only pull in
+        # the anthropic dependency when self-healing is actually enabled and triggered.
+ 
+        self.logger.log("self_heal_attempt", step_id=step.step_id,
+                         original_error=f"{type(original_exc).__name__}: {original_exc}")
+        try:
+            if self._healer is None:
+                self._healer = SelfHealer()
+            heal_result = self._healer.propose_locator(
+                page, step.target.description, step.target.strategies,
+            )
+        except Exception as heal_exc:
+            self.logger.log("self_heal_error", step_id=step.step_id, error=str(heal_exc))
+            return None
+ 
+        if not heal_result.healed:
+            self.logger.log("self_heal_no_proposal", step_id=step.step_id,
+                             reasoning=heal_result.reasoning)
+            return None
+ 
+        # Try the proposed strategy directly against the LIVE page first, before
+        # touching any file -- if it doesn't actually work, there's no point
+        # writing a new artifact version for a locator that doesn't resolve.
+        try:
+            healed_locator = Locator(
+                description=step.target.description,
+                strategies=list(step.target.strategies) + [heal_result.new_strategy],
+            )
+            loc, used_strategy = _resolve(page, healed_locator)
+            self._execute_step_with_locator(page, step, params, outputs, loc)
+        except Exception as retry_exc:
+            self.logger.log("self_heal_proposal_failed", step_id=step.step_id,
+                             proposed_kind=heal_result.new_strategy.kind.value,
+                             error=str(retry_exc))
+            return None
+ 
+        # It worked live -- persist the healed artifact as a new version so
+        # future replays benefit too (module docstring point 2: additive,
+        # never overwrites the original).
+        out_path = apply_heal_and_save(artifact, step, heal_result.new_strategy, self.artifacts_dir)
+        self.logger.log("self_heal_succeeded", step_id=step.step_id,
+                         proposed_kind=heal_result.new_strategy.kind.value,
+                         proposed_value=heal_result.new_strategy.value,
+                         reasoning=heal_result.reasoning,
+                         new_artifact_path=str(out_path))
+ 
+        self.logger.log("step_executed", step_id=step.step_id, action=step.action.value, self_healed=True)
+ 
+        # The step itself succeeded via the healed locator. Check for any
+        # expected_outcome that might apply (same as a normal successful
+        # step -- see the bottom of _run_step). Crucially: _check_expected_
+        # outcomes returning None here means "no special outcome, proceed
+        # normally" -- NOT "healing failed". Returning that None directly
+        # from this method would be indistinguishable from a failed heal to
+        # the caller, which was a real bug caught in testing: the caller
+        # (_run_step) treats any None from this method as "fall through to
+        # hard failure", so a successful-but-outcome-less heal would have
+        # been incorrectly reported as hard_failure. Use a sentinel instead.
+        outcome_result = self._check_expected_outcomes(page, artifact, step, params, None)
+        return outcome_result if outcome_result is not None else _SELF_HEAL_SUCCEEDED_NO_OUTCOME
+ 
+    def _execute_step_with_locator(self, page: Page, step, params: dict, outputs: dict, loc) -> None:
+        """Same action-dispatch logic as _execute_step, but against an
+        already-resolved locator (the healed one) rather than re-resolving
+        step.target from scratch. Kept as a separate small method rather
+        than duplicating _execute_step's full body inline in the healing
+        path."""
+        action = step.action
+        if action == ActionType.CLICK:
+            loc.click(timeout=8000)
+        elif action == ActionType.FILL:
+            loc.fill(_fill_params(step.value, params) or "", timeout=8000)
+        elif action == ActionType.SELECT:
+            loc.select_option(_fill_params(step.value, params), timeout=8000)
+        elif action == ActionType.ASSERT_STATE:
+            loc.wait_for(timeout=8000, state="visible")
+        elif action == ActionType.EXTRACT:
+            text = loc.inner_text(timeout=8000).strip()
+            if step.extract_as:
+                outputs[step.extract_as] = text
+        else:
+            raise ValueError(f"Self-heal doesn't support action {action}")
+        page.wait_for_load_state("networkidle", timeout=5000)
 
     def _execute_step(self, page: Page, step, params: dict, outputs: dict) -> None:
         action = step.action
