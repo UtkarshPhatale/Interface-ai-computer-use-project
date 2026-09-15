@@ -182,21 +182,56 @@ doesn't). The lesson that matters for this project's actual thesis --
 inference cost" -- is that this guarantee needed to be *tested*, not
 assumed from discovery working. It wasn't actually true until today.
 
+---
+
+## Finding #7: Self-healing feature — built, wired, and verified live
+
+Design (opt-in `--self-heal` flag, additive/versioned artifacts, LLM only
+called on a locator hard-failure) built and unit-tested first (5 new
+pure-logic tests in `test_self_heal.py`, bringing the suite to 27, then
+1 more integration-style regression test for Bug A below, bringing it
+to 28). Two real bugs surfaced only once tested end-to-end against a
+live browser and a real LLM call -- exactly the class of bug unit tests
+with mocks can't catch:
+
+**Bug A -- a sentinel/control-flow bug in my own wiring.** A successful
+heal whose step had no matching `expected_outcome` returned the same
+`None` as a *failed* heal, so `_run_step` incorrectly reported a
+successful self-heal as `hard_failure`. Caught during manual
+verification before handoff, fixed with a dedicated sentinel
+(`_SELF_HEAL_SUCCEEDED_NO_OUTCOME`), covered by a new regression test
+(`test_run_step_self_heal_success_with_no_expected_outcome_is_not_reported_as_failure`).
+
+**Bug B -- a removed Playwright API.** `page.accessibility.snapshot()`,
+used to capture the DOM for the LLM prompt, was removed entirely in
+Playwright 1.57 after 3 years of deprecation. Worked in initial testing
+(Playwright 1.56), crashed on the first live end-to-end test on a newer
+installed version with `'Page' object has no attribute 'accessibility'`.
+Fixed by switching to `page.aria_snapshot(mode="ai")`, Playwright's
+current replacement, explicitly designed for LLM consumption -- arguably
+a better fit than the old approach. Not caught by any unit test, since
+`propose_locator()` (the only place this API is called) is deliberately
+untested at the unit level -- it requires a live API key, same testing
+convention as `agent/discovery.py`'s LLM-calling code.
+
+**Live verification result:** given a capability artifact with a
+deliberately broken locator (`role='NotARealButton'`), self-heal:
+1. Retried 3 times, exhausted retries as expected
+2. Made one real LLM call, which correctly reasoned from the aria
+   snapshot that the true element has a `generic` role with cursor:pointer
+   and proposed `text: 'Search'` -- the same conclusion reached manually
+   back in Finding #5
+3. Retried live with the proposed locator -- worked
+4. Wrote a new artifact version (`_v1.0.1`) with the healed strategy
+   **appended** to the original (broken) one, never overwriting it
+5. Continued the run normally through the remaining steps -- full
+   `success`, matching the original artifact's outputs exactly
+
+This is strong validation that opt-in self-healing works as designed
+without compromising the zero-LLM-cost guarantee of default replay.
+
 ## Open items / not yet done
 
-- **Self-healing re-discovery (deferred, not forgotten):** the original
-  plan's Week 2 called for an LLM-assisted pass that proposes a new
-  locator automatically when replay hits a hard failure, using a DOM
-  snapshot at failure time. `dashboard/diagnosis.py` covers the
-  *explain-why* half of this; the *propose-a-fix* half is intentionally
-  deferred. Reasoning: the project's current core claim -- deterministic,
-  zero-LLM-cost replay -- is fully proven and well-evidenced as of Day 7;
-  reintroducing an LLM call into the replay path is a second, different
-  thesis that deserves its own clean scoping (does it patch the artifact
-  in place? version it? retry just the one step? what if the LLM also
-  can't find the element?) rather than being rushed in on top of an
-  already-complete story. Picking this up as a deliberate second phase,
-  after metrics/README, rather than mid-stream.
 - **DONE:** cost and reliability metrics formalized as reproducible
   scripts (`dashboard/cost_estimate.py`, `dashboard/reliability.py`),
   both derived from real evidence, not invented numbers:
